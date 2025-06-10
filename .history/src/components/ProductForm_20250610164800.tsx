@@ -60,13 +60,14 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     const finalFormData = {
+      product_id: Date.now(), 
       name: String(name),
-      price: Number(price),
-      description: String(description),
-      categoryId: Number(categoryId),
-      featured: featured ? "true" : "false",
-      colorsList: colorsList.join(", "),
-      imagesList: imageUrl, 
+  price: Number(price),
+  description: String(description),
+  categoryId: Number(categoryId),
+  featured: featured ? "true" : "false",
+  colorsList: colorsList.join(", "),
+  imagesList: imageUrl, 
     };
   
     const { error } = await supabase.from("Products").upsert(finalFormData);

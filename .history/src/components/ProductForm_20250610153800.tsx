@@ -31,8 +31,7 @@ const colorOptions = [
 
 export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
   const [categories, setCategories] = useState<{ category_id: number; name: string }[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; name: string }[]>([]);
   const [formData, setFormData] = useState({
     name: product?.name || "",
     price: product?.price || "",
@@ -40,12 +39,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
     categoryId: product?.categoryId || "",
     featured: product?.featured || "",
     colorsList: product?.colorsList || "",
-    imagesList: product?.imagesList || "",
+    imagesList: product?.imagesList || ""
   });
-
   const selectedColors = formData.colorsList
-    ? formData.colorsList.split(",").map((c) => c.trim())
-    : [];
+  ? formData.colorsList.split(",").map((c) => c.trim())
+  : [];
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -55,65 +53,60 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
     };
 
     fetchCategories();
-    
-  }, [product]);
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    const finalFormData = {
-      name: String(name),
-      price: Number(price),
-      description: String(description),
-      categoryId: Number(categoryId),
-      featured: featured ? "true" : "false",
-      colorsList: colorsList.join(", "),
-      imagesList: imageUrl, 
-    };
-  
-    const { error } = await supabase.from("Products").upsert(finalFormData);
-    if (error) {
-      console.error("Error saving product:", error);
-    } else {
-      console.log("Product saved successfully!");
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Saving product:', formData);
+    onSave();
   };
-  
 
   const handleColorChange = (color: string) => {
-    const current = formData.colorsList
-      ? formData.colorsList.split(",").map((c) => c.trim())
-      : [];
-    const updated = current.includes(color)
-      ? current.filter((c) => c !== color)
-      : [...current, color];
-    setFormData({ ...formData, colorsList: updated.join(", ") });
+    const currentColors = formData.colorsList ? formData.colorsList.split(",").map(c => c.trim()) : [];
+    const updatedColors = currentColors.includes(color)
+      ? currentColors.filter(c => c !== color)
+      : [...currentColors, color];
+    setFormData({ ...formData, colorsList: updatedColors.join(", ") });
   };
-  
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFileEntries: { url: string; name: string }[] = [];
   
-    setSelectedFile(file);
+      for (const file of Array.from(files)) {
+        const fileName = `${Date.now()}_${file.name}`;
+        const { data, error } = await supabase.storage
+          .from("images")
+          .upload(fileName, file);
   
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "your_unsigned_preset"); // ⚠️ Thay bằng preset của bạn
-  
-    try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/your_cloud_name/image/upload`, {
-        method: "POST",
-        body: formData,
-      });
-  
-      const data = await response.json();
-      if (data.secure_url) {
-        setImageUrl(data.secure_url);
-      } else {
-        console.error("Upload failed:", data);
+        if (data) {
+          const imageUrl = supabase.storage
+            .from("images")
+            .getPublicUrl(data.path).data.publicUrl;
+          newFileEntries.push({ url: imageUrl, name: file.name });
+        } else {
+          console.error("Upload failed:", error);
+        }
       }
-    } catch (err) {
-      console.error("Error uploading image:", err);
+  
+      const currentUrls = uploadedFiles;
+      const updatedFiles = [...currentUrls, ...newFileEntries];
+  
+      setUploadedFiles(updatedFiles);
+      setFormData({
+        ...formData,
+        imagesList: updatedFiles.map((f) => f.url).join(", "),
+      });
     }
+  };
+
+  const handleRemoveImage = (url: string) => {
+    const urls = formData.imagesList
+      .split(",")
+      .map((u) => u.trim())
+      .filter((u) => u !== url);
+    setFormData({ ...formData, imagesList: urls.join(", ") });
   };
   
 
@@ -130,8 +123,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Product Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Name
+            </label>
             <input
               type="text"
               value={formData.name}
@@ -141,8 +137,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             />
           </div>
 
+          {/* Price */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Price (VND)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Price (VND)
+            </label>
             <input
               type="number"
               value={formData.price}
@@ -152,8 +151,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             />
           </div>
 
+          {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Category
+            </label>
             <select
               value={formData.categoryId}
               onChange={(e) => setFormData({ ...formData, categoryId: +e.target.value })}
@@ -169,8 +171,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             </select>
           </div>
 
+          {/* Featured */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Featured</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Featured
+            </label>
             <input
               type="text"
               value={formData.featured}
@@ -180,8 +185,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
           </div>
         </div>
 
+        {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Description
+          </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -190,8 +198,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
           />
         </div>
 
+        {/* Colors */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Colors</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Colors
+          </label>
           <div className="flex flex-wrap gap-2">
             {colorOptions.map((color) => {
               const isSelected = selectedColors.includes(color.name);
@@ -211,41 +222,67 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
           </div>
         </div>
 
+        {/* Image Upload */}
         <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Images
-            </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Images
+          </label>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-sm text-gray-600 mb-2">
+              Drag and drop or click to upload
+            </p>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+              id="image-upload"
             />
-            {imageUrl && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-700">Image uploaded:</p>
-                <img src={imageUrl} alt="Uploaded" className="h-32 rounded-lg" />
-              </div>
-            )}
-              
-            </div>
-            
+            <label
+              htmlFor="image-upload"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700"
+            >
+              Select Images
+            </label>
           </div>
+          {formData.imagesList &&
+            formData.imagesList
+              .split(",")
+              .map((url) => url.trim())
+              .filter((url) => url.length > 0)
+              .map((url, index) => (
+                {uploadedFiles.map((file, index) => (
+                  <div key={index} className="relative inline-block m-2">
+                    <img src={file.url} alt={file.name} className="w-24 h-24 object-cover rounded border" />
+                    <p className="text-xs text-center mt-1 w-24 truncate">{file.name}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(file.url)}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              ))}
+        </div>
 
+        {/* Action Buttons */}
         <div className="flex justify-end space-x-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            {product ? 'Update' : 'New'}
+            {product ? "Update" : "Add Product"}
           </button>
         </div>
       </form>

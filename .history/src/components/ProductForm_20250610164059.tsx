@@ -60,13 +60,14 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     const finalFormData = {
-      name: String(name),
+      product_id: Date.now(), 
+      name,
       price: Number(price),
-      description: String(description),
+      description,
       categoryId: Number(categoryId),
       featured: featured ? "true" : "false",
       colorsList: colorsList.join(", "),
-      imagesList: imageUrl, 
+      imagesList: imageUrl, // URL lấy từ Cloudinary
     };
   
     const { error } = await supabase.from("Products").upsert(finalFormData);
@@ -216,21 +217,42 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
               Images
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              
+              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-sm text-gray-600 mb-2">
+                Drag and drop or click to upload images
+              </p>
               <input
                 type="file"
                 accept="image/*"
-                onChange={handleImageUpload}
-            />
-            {imageUrl && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-700">Image uploaded:</p>
-                <img src={imageUrl} alt="Uploaded" className="h-32 rounded-lg" />
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    setSelectedFile(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
+              >
+                Choose Images
+              </label>
+            </div>
+
+            {selectedFile && (
+              <div className="mt-4 text-left">
+                <p className="text-sm font-medium text-gray-700 mb-1">Selected Image:</p>
+                <p className="text-sm text-gray-600">{selectedFile.name}</p>
               </div>
             )}
-              
-            </div>
-            
+            {!selectedFile && product?.imagesList && (
+              <img
+                src={product.imagesList}
+                alt="Current"
+                className="mt-4 rounded-lg w-32 h-32 object-cover"
+              />
+            )}
           </div>
 
         <div className="flex justify-end space-x-4">

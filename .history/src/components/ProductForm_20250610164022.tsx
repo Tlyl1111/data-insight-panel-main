@@ -59,22 +59,30 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
   }, [product]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
+  
+    let imageUrl = "";
+  
+    if (selectedFile) {
+      const uploadedUrl = await uploadImageToSupabase(selectedFile);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
+  
     const finalFormData = {
-      name: String(name),
-      price: Number(price),
-      description: String(description),
-      categoryId: Number(categoryId),
-      featured: featured ? "true" : "false",
-      colorsList: colorsList.join(", "),
-      imagesList: imageUrl, 
+      ...formData,
+      imagesList: imageUrl, // chỉ 1 URL
     };
   
     const { error } = await supabase.from("Products").upsert(finalFormData);
+  
     if (error) {
-      console.error("Error saving product:", error);
+      console.error("Save product error:", error.message);
     } else {
-      console.log("Product saved successfully!");
+      onSave();
     }
+  
+    setUploading(false);
   };
   
 
@@ -216,21 +224,42 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
               Images
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              
+              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-sm text-gray-600 mb-2">
+                Drag and drop or click to upload images
+              </p>
               <input
                 type="file"
                 accept="image/*"
-                onChange={handleImageUpload}
-            />
-            {imageUrl && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-700">Image uploaded:</p>
-                <img src={imageUrl} alt="Uploaded" className="h-32 rounded-lg" />
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    setSelectedFile(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
+              >
+                Choose Images
+              </label>
+            </div>
+
+            {selectedFile && (
+              <div className="mt-4 text-left">
+                <p className="text-sm font-medium text-gray-700 mb-1">Selected Image:</p>
+                <p className="text-sm text-gray-600">{selectedFile.name}</p>
               </div>
             )}
-              
-            </div>
-            
+            {!selectedFile && product?.imagesList && (
+              <img
+                src={product.imagesList}
+                alt="Current"
+                className="mt-4 rounded-lg w-32 h-32 object-cover"
+              />
+            )}
           </div>
 
         <div className="flex justify-end space-x-4">

@@ -60,6 +60,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     const finalFormData = {
+      product_id: Date.now(), 
       name: String(name),
       price: Number(price),
       description: String(description),

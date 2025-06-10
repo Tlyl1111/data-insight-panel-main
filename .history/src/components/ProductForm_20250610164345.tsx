@@ -60,9 +60,10 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     const finalFormData = {
-      name: String(name),
+      product_id: Date.now(), 
+      name,
       price: Number(price),
-      description: String(description),
+      description,
       categoryId: Number(categoryId),
       featured: featured ? "true" : "false",
       colorsList: colorsList.join(", "),
@@ -230,7 +231,20 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             )}
               
             </div>
-            
+
+            {selectedFile && (
+              <div className="mt-4 text-left">
+                <p className="text-sm font-medium text-gray-700 mb-1">Selected Image:</p>
+                <p className="text-sm text-gray-600">{selectedFile.name}</p>
+              </div>
+            )}
+            {!selectedFile && product?.imagesList && (
+              <img
+                src={product.imagesList}
+                alt="Current"
+                className="mt-4 rounded-lg w-32 h-32 object-cover"
+              />
+            )}
           </div>
 
         <div className="flex justify-end space-x-4">

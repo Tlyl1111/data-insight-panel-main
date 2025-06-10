@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { X, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,11 +27,9 @@ const colorOptions = [
   { name: "Yellow", hex: "#FFEB3B" },
 ];
 
-
 export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
   const [categories, setCategories] = useState<{ category_id: number; name: string }[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; name: string }[]>([]);
   const [formData, setFormData] = useState({
     name: product?.name || "",
     price: product?.price || "",
@@ -40,7 +37,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
     categoryId: product?.categoryId || "",
     featured: product?.featured || "",
     colorsList: product?.colorsList || "",
-    imagesList: product?.imagesList || "",
+    imagesList: product?.imagesList || ""
   });
 
   const selectedColors = formData.colorsList
@@ -55,67 +52,50 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
     };
 
     fetchCategories();
-    
+
+    // Load existing image if editing
+    if (product?.imagesList) {
+      const url = product.imagesList.trim();
+      setUploadedFiles([{ url, name: url.split("/").pop() || "image" }]);
+    }
   }, [product]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    const finalFormData = {
-      name: String(name),
-      price: Number(price),
-      description: String(description),
-      categoryId: Number(categoryId),
-      featured: featured ? "true" : "false",
-      colorsList: colorsList.join(", "),
-      imagesList: imageUrl, 
-    };
-  
-    const { error } = await supabase.from("Products").upsert(finalFormData);
-    if (error) {
-      console.error("Error saving product:", error);
-    } else {
-      console.log("Product saved successfully!");
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Saving product:", formData);
+    onSave();
   };
-  
 
   const handleColorChange = (color: string) => {
-    const current = formData.colorsList
-      ? formData.colorsList.split(",").map((c) => c.trim())
-      : [];
-    const updated = current.includes(color)
-      ? current.filter((c) => c !== color)
-      : [...current, color];
-    setFormData({ ...formData, colorsList: updated.join(", ") });
+    const currentColors = selectedColors;
+    const updatedColors = currentColors.includes(color)
+      ? currentColors.filter((c) => c !== color)
+      : [...currentColors, color];
+    setFormData({ ...formData, colorsList: updatedColors.join(", ") });
   };
-  
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-  
-    setSelectedFile(file);
-  
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "your_unsigned_preset"); // ⚠️ Thay bằng preset của bạn
-  
-    try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/your_cloud_name/image/upload`, {
-        method: "POST",
-        body: formData,
-      });
-  
-      const data = await response.json();
-      if (data.secure_url) {
-        setImageUrl(data.secure_url);
-      } else {
-        console.error("Upload failed:", data);
-      }
-    } catch (err) {
-      console.error("Error uploading image:", err);
+
+    const fileName = `${Date.now()}_${file.name}`;
+    const { data, error } = await supabase.storage.from("images").upload(fileName, file);
+
+    if (data) {
+      const imageUrl = supabase.storage.from("images").getPublicUrl(data.path).data.publicUrl;
+      const newFile = { url: imageUrl, name: file.name };
+
+      setUploadedFiles([newFile]);
+      setFormData({ ...formData, imagesList: imageUrl });
+    } else {
+      console.error("Upload failed:", error);
     }
   };
-  
+
+  const handleRemoveImage = () => {
+    setUploadedFiles([]);
+    setFormData({ ...formData, imagesList: "" });
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -130,6 +110,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Product Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
             <input
@@ -141,6 +122,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             />
           </div>
 
+          {/* Price */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Price (VND)</label>
             <input
@@ -152,6 +134,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             />
           </div>
 
+          {/* Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
             <select
@@ -169,6 +152,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
             </select>
           </div>
 
+          {/* Featured */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Featured</label>
             <input
@@ -180,6 +164,7 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
           </div>
         </div>
 
+        {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
           <textarea
@@ -190,65 +175,8 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
           />
         </div>
 
+        {/* Colors */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Colors</label>
           <div className="flex flex-wrap gap-2">
-            {colorOptions.map((color) => {
-              const isSelected = selectedColors.includes(color.name);
-              return (
-                <button
-                  key={color.name}
-                  type="button"
-                  onClick={() => handleColorChange(color.name)}
-                  className={`w-8 h-8 rounded-full border-2 ${
-                    isSelected ? "border-blue-500 ring-2 ring-blue-300" : "border-gray-300"
-                  }`}
-                  style={{ backgroundColor: color.hex }}
-                  title={color.name}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Images
-            </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-            />
-            {imageUrl && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-700">Image uploaded:</p>
-                <img src={imageUrl} alt="Uploaded" className="h-32 rounded-lg" />
-              </div>
-            )}
-              
-            </div>
-            
-          </div>
-
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            {product ? 'Update' : 'New'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-};
+           

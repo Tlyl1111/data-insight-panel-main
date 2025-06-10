@@ -31,8 +31,8 @@ const colorOptions = [
 
 export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
   const [categories, setCategories] = useState<{ category_id: number; name: string }[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: product?.name || "",
     price: product?.price || "",
@@ -58,25 +58,11 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
     
   }, [product]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    const finalFormData = {
-      name: String(name),
-      price: Number(price),
-      description: String(description),
-      categoryId: Number(categoryId),
-      featured: featured ? "true" : "false",
-      colorsList: colorsList.join(", "),
-      imagesList: imageUrl, 
-    };
-  
-    const { error } = await supabase.from("Products").upsert(finalFormData);
-    if (error) {
-      console.error("Error saving product:", error);
-    } else {
-      console.log("Product saved successfully!");
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Saving product:', formData);
+    onSave();
   };
-  
 
   const handleColorChange = (color: string) => {
     const current = formData.colorsList
@@ -87,35 +73,15 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
       : [...current, color];
     setFormData({ ...formData, colorsList: updated.join(", ") });
   };
-  
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-  
-    setSelectedFile(file);
-  
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "your_unsigned_preset"); // ⚠️ Thay bằng preset của bạn
-  
-    try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/your_cloud_name/image/upload`, {
-        method: "POST",
-        body: formData,
-      });
-  
-      const data = await response.json();
-      if (data.secure_url) {
-        setImageUrl(data.secure_url);
-      } else {
-        console.error("Upload failed:", data);
-      }
-    } catch (err) {
-      console.error("Error uploading image:", err);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
+      setSelectedFiles(fileArray);
+      // Sau này sẽ upload lên Supabase ở đây
     }
   };
-  
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -216,21 +182,36 @@ export const ProductForm = ({ product, onClose, onSave }: ProductFormProps) => {
               Images
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              
+              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-sm text-gray-600 mb-2">
+                Drag and drop or click to upload images
+              </p>
               <input
                 type="file"
+                multiple
                 accept="image/*"
                 onChange={handleImageUpload}
-            />
-            {imageUrl && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-700">Image uploaded:</p>
-                <img src={imageUrl} alt="Uploaded" className="h-32 rounded-lg" />
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
+              >
+                Choose Images
+              </label>
+            </div>
+
+            {selectedFiles.length > 0 && (
+              <div className="mt-4 text-left">
+                <p className="text-sm font-medium text-gray-700 mb-1">Selected Images:</p>
+                <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+                  {selectedFiles.map((file, index) => (
+                    <li key={index}>{file.name}</li>
+                  ))}
+                </ul>
               </div>
             )}
-              
-            </div>
-            
           </div>
 
         <div className="flex justify-end space-x-4">

@@ -99,6 +99,8 @@ export const DashboardStats = () => {
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">{stat.title}</p>
               <p className="text-2xl font-bold text-foreground mb-1">{stat.value}</p>
+              
+              
             </div>
             <div className={`p-3 rounded-lg ${getColorClasses(stat.color)}`}>
               <stat.icon size={24} />
